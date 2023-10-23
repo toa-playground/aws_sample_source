@@ -1,0 +1,138 @@
+## Step 1 Raspberry Piで Kinesis Video Streams with WebRTC のサンプルアプリを使えるようにする
+
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get clean
+sudo reboot
+
+sudo apt-get install cmake \
+libssl-dev libcurl4-openssl-dev liblog4cplus-dev
+
+sudo apt-get install libgstreamer1.0-dev \
+libgstreamer-plugins-base1.0-dev \
+gstreamer1.0-plugins-base-apps \
+gstreamer1.0-plugins-bad \
+gstreamer1.0-plugins-good \
+gstreamer1.0-plugins-ugly \
+gstreamer1.0-tools
+
+v4l2-ctl -d /dev/video0 --list-formats-ext
+
+gst-launch-1.0 v4l2src device=/dev/video0 \
+  ! videoconvert \
+  ! video/x-raw,width=640,height=360,framerate=30/1 \
+  ! autovideosink
+
+### ソースコードの取得
+
+cd
+git clone --recursive https://github.com/awslabs/amazon-kinesis-video-streams-webrtc-sdk-c.git
+
+### ビルド
+
+mkdir -p amazon-kinesis-video-streams-webrtc-sdk-c/build
+cd amazon-kinesis-video-streams-webrtc-sdk-c/build
+
+cmake ..
+make
+
+### 動作確認
+
+aws sts get-session-token
+
+export AWS_DEFAULT_REGION=ap-northeast-1
+export AWS_ACCESS_KEY_ID=[AccessKeyId の値]
+export AWS_SECRET_ACCESS_KEY=[SecretAccessKey の値]
+export AWS_SESSION_TOKEN=[SessionToken の値]
+
+./kvsWebrtcClientMasterGstSample sample-channel video-only
+
+## Step 2 よりセキュアな認証情報の利用について
+
+### AWS IoTの証明書を作成
+
+aws iot describe-endpoint \
+--endpoint-type=iot:Data-ATS
+
+aws iot create-keys-and-certificate \
+--set-as-active \
+--certificate-pem-outfile ./certificate.pem.crt \
+--public-key-outfile ./public.pem.key \
+--private-key-outfile ./private.pem.key
+
+### CloudFormation で AWS IoT に必要なリソースと Role を作成する
+
+aws cloudformation create-stack --stack-name DoorCamera \
+--template-body file://template.yml \
+--parameters \
+ParameterKey=DoorCameraCertificateARN,ParameterValue=[ARN] \
+ParameterKey=DoorCameraName,ParameterValue=RPiDoorCamera \
+--capabilities CAPABILITY_NAMED_IAM
+
+aws cloudformation describe-stacks --stack-name ここにStackId
+
+### Role Alias の作成
+
+aws iot create-role-alias \
+--role-alias KVSWebRTCAlias \
+--role-arn [KVSCredentialRole]
+
+aws iot describe-endpoint \
+--endpoint-type=iot:CredentialProvider
+
+### AWS IoT の root CA 証明書のダウンロード
+
+cd
+wget https://www.amazontrust.com/repository/AmazonRootCA1.pem -O amazon-kinesis-video-streams-webrtc-sdk-c/build/cacert.pem
+
+CHK_STATUS(createLwsIotCredentialProvider(
+  "[クレデンシャルエンドポイント]",
+  "certificate.pem.crt",
+  "private.pem.key",
+  "cacert.pem",
+  "KVSWebRTCAlias",
+  channelName,
+  &pSampleConfiguration->pCredentialProvider));
+
+freeIotCredentialProvider(&pSampleConfiguration->pCredentialProvider);
+
+cmake ..
+make
+
+### 動作確認
+
+export AWS_DEFAULT_REGION=ap-northeast-1
+./kvsWebrtcClientMasterGstSample [シグナリングチャンネルの名前] video-only
+
+### Lambda の作成
+
+cd path/to/alexa_camera_skill
+zip lambda.zip lambda_function.py
+
+CHANNEL_ARN=[KVS with WebRTCのシグナリングチャンネルARNを指定]
+FRIENDLY_NAME=[ネコカメラ]
+ROLEARN=[CloudFormationで作成されたロール(スタック名_ASKLambdaRole)を指定]
+ASKID=[アレクサスキルのID]
+
+aws --region us-west-2 lambda create-function \
+--function-name KVSLambda \
+--runtime python3.8 \
+--zip-file fileb://lambda.zip \
+--handler lambda_function.lambda_handler \
+--environment "Variables={CHANNEL_ARN=${CHANNEL_ARN},FRIENDLY_NAME=${FRIENDLY_NAME}}" \
+--timeout 10 \
+--publish \
+--role ${ROLEARN}
+
+aws --region us-west-2 lambda add-permission \
+--function-name KVSLambda \
+--statement-id allow_ask \
+--action lambda:InvokeFunction \
+--principal alexa-connectedhome.amazon.com \
+--event-source-token ${ASKID}
+
+### 動作確認
+
+export AWS_DEFAULT_REGION=ap-northeast-1
+./kvsWebrtcClientMasterGstSample [シグナリングチャンネルの名前] video-only
+

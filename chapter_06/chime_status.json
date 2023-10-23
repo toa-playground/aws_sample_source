@@ -1,0 +1,181 @@
+{
+    "detectorModelDefinition": {
+        "states": [
+            {
+                "stateName": "second_call",
+                "onInput": {
+                    "events": [],
+                    "transitionEvents": [
+                        {
+                            "eventName": "to_normal",
+                            "condition": "timeout(\"reset_timer\")",
+                            "actions": [],
+                            "nextState": "Normal"
+                        },
+                        {
+                            "eventName": "to_call_3",
+                            "condition": "$input.sensor_value.analog_value > 0",
+                            "actions": [],
+                            "nextState": "third_call"
+                        }
+                    ]
+                },
+                "onEnter": {
+                    "events": [
+                        {
+                            "eventName": "init",
+                            "condition": "true",
+                            "actions": [
+                                {
+                                    "resetTimer": {
+                                        "timerName": "reset_timer"
+                                    }
+                                },
+                                {
+                                    "iotTopicPublish": {
+                                        "mqttTopic": "cmd/myhome/patlite",
+                                        "payload": {
+                                            "contentExpression": "'{\\\"led_red\\\":\\\"0\\\",\\\"led_yellow\\\":\\\"2\\\",\\\"led_green\\\":\\\"0\\\"}'",
+                                            "type": "JSON"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "onExit": {
+                    "events": []
+                }
+            },
+            {
+                "stateName": "third_call",
+                "onInput": {
+                    "events": [],
+                    "transitionEvents": [
+                        {
+                            "eventName": "to_normal",
+                            "condition": "timeout(\"reset_timer\")",
+                            "actions": [],
+                            "nextState": "Normal"
+                        }
+                    ]
+                },
+                "onEnter": {
+                    "events": [
+                        {
+                            "eventName": "init",
+                            "condition": "true",
+                            "actions": [
+                                {
+                                    "resetTimer": {
+                                        "timerName": "reset_timer"
+                                    }
+                                },
+                                {
+                                    "iotTopicPublish": {
+                                        "mqttTopic": "cmd/myhome/patlite",
+                                        "payload": {
+                                            "contentExpression": "'{\\\"led_red\\\":\\\"2\\\",\\\"led_yellow\\\":\\\"0\\\",\\\"led_green\\\":\\\"0\\\"}'",
+                                            "type": "JSON"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "onExit": {
+                    "events": []
+                }
+            },
+            {
+                "stateName": "Normal",
+                "onInput": {
+                    "events": [],
+                    "transitionEvents": [
+                        {
+                            "eventName": "to_call_1",
+                            "condition": "$input.sensor_value.analog_value > 0",
+                            "actions": [],
+                            "nextState": "first_call"
+                        }
+                    ]
+                },
+                "onEnter": {
+                    "events": [
+                        {
+                            "eventName": "clear",
+                            "condition": "true",
+                            "actions": [
+                                {
+                                    "iotTopicPublish": {
+                                        "mqttTopic": "cmd/myhome/patlite",
+                                        "payload": {
+                                            "contentExpression": "'{\\\"led_red\\\":\\\"0\\\",\\\"led_yellow\\\":\\\"0\\\",\\\"led_green\\\":\\\"0\\\"}'",
+                                            "type": "JSON"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "onExit": {
+                    "events": []
+                }
+            },
+            {
+                "stateName": "first_call",
+                "onInput": {
+                    "events": [],
+                    "transitionEvents": [
+                        {
+                            "eventName": "to_normal",
+                            "condition": "timeout(\"reset_timer\")",
+                            "actions": [],
+                            "nextState": "Normal"
+                        },
+                        {
+                            "eventName": "to_call_2",
+                            "condition": "$input.sensor_value.analog_value > 0",
+                            "actions": [],
+                            "nextState": "second_call"
+                        }
+                    ]
+                },
+                "onEnter": {
+                    "events": [
+                        {
+                            "eventName": "init",
+                            "condition": "true",
+                            "actions": [
+                                {
+                                    "setTimer": {
+                                        "timerName": "reset_timer",
+                                        "seconds": 60
+                                    }
+                                },
+                                {
+                                    "iotTopicPublish": {
+                                        "mqttTopic": "cmd/myhome/patlite",
+                                        "payload": {
+                                            "contentExpression": "'{\\\"led_red\\\":\\\"0\\\",\\\"led_yellow\\\":\\\"0\\\",\\\"led_green\\\":\\\"2\\\"}'",
+                                            "type": "JSON"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "onExit": {
+                    "events": []
+                }
+            }
+        ],
+        "initialStateName": "Normal"
+    },
+    "detectorModelName": "chime_status",
+    "evaluationMethod": "BATCH"
+}

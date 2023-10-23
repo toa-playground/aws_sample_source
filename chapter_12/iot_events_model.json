@@ -1,0 +1,167 @@
+{
+    "detectorModelDefinition": {
+        "states": [
+            {
+                "stateName": "Device_alert",
+                "onInput": {
+                    "events": [
+                        {
+                            "eventName": "update",
+                            "condition": "true",
+                            "actions": [
+                                {
+                                    "setVariable": {
+                                        "variableName": "timestamp",
+                                        "value": "$input.predict_person.timestamp"
+                                    }
+                                },
+                                {
+                                    "setVariable": {
+                                        "variableName": "persons",
+                                        "value": "$input.predict_person.persons"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "transitionEvents": [
+                        {
+                            "eventName": "Message_arrival",
+                            "condition": "$variable.timestamp > 0",
+                            "actions": [],
+                            "nextState": "Normal"
+                        }
+                    ]
+                },
+                "onEnter": {
+                    "events": [
+                        {
+                            "eventName": "init",
+                            "condition": "true",
+                            "actions": [
+                                {
+                                    "setVariable": {
+                                        "variableName": "timestamp",
+                                        "value": "0"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "onExit": {
+                    "events": []
+                }
+            },
+            {
+                "stateName": "Over_3_person",
+                "onInput": {
+                    "events": [
+                        {
+                            "eventName": "update",
+                            "condition": "true",
+                            "actions": [
+                                {
+                                    "setVariable": {
+                                        "variableName": "persons",
+                                        "value": "$input.predict_person.persons"
+                                    }
+                                },
+                                {
+                                    "setVariable": {
+                                        "variableName": "timestamp",
+                                        "value": "$input.predict_person.timestamp"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "transitionEvents": [
+                        {
+                            "eventName": "To_Normal",
+                            "condition": "$variable.persons <= 2",
+                            "actions": [],
+                            "nextState": "Normal"
+                        }
+                    ]
+                },
+                "onEnter": {
+                    "events": []
+                },
+                "onExit": {
+                    "events": []
+                }
+            },
+            {
+                "stateName": "Normal",
+                "onInput": {
+                    "events": [
+                        {
+                            "eventName": "update",
+                            "condition": "true",
+                            "actions": [
+                                {
+                                    "setVariable": {
+                                        "variableName": "persons",
+                                        "value": "$input.predict_person.persons"
+                                    }
+                                },
+                                {
+                                    "setVariable": {
+                                        "variableName": "timestamp",
+                                        "value": "$input.predict_person.timestamp"
+                                    }
+                                },
+                                {
+                                    "resetTimer": {
+                                        "timerName": "device_interval_timer"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "transitionEvents": [
+                        {
+                            "eventName": "To_Over_3_person",
+                            "condition": "$variable.persons > 2",
+                            "actions": [],
+                            "nextState": "Over_3_person"
+                        },
+                        {
+                            "eventName": "Message_not_arrival",
+                            "condition": "timeout(\"device_interval_timer\")",
+                            "actions": [],
+                            "nextState": "Device_alert"
+                        }
+                    ]
+                },
+                "onEnter": {
+                    "events": [
+                        {
+                            "eventName": "init",
+                            "condition": "true",
+                            "actions": [
+                                {
+                                    "setTimer": {
+                                        "timerName": "device_interval_timer",
+                                        "seconds": 180,
+                                        "durationExpression": null
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "onExit": {
+                    "events": []
+                }
+            }
+        ],
+        "initialStateName": "Normal"
+    },
+    "detectorModelDescription": null,
+    "detectorModelName": "predict_person",
+    "evaluationMethod": "SERIAL",
+    "key": null,
+    "roleArn": ""
+}

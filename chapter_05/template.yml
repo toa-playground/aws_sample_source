@@ -1,0 +1,115 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Create IoT Thing and role for Kinesis Video Streams with WebRTC client
+
+Parameters:
+  DoorCameraName:
+    Description: Thing name for Raspberry Pi
+    Type: String
+    Default: RPiDoorCamera
+  DoorCameraCertificateARN:
+    Description: Raspberry Pi Certificate ARN
+    Type: String
+    Default: ""
+
+
+Resources:
+#############################################################################
+# IoT Thing
+#############################################################################
+  DoorCamera:
+    Type: AWS::IoT::Thing
+    Properties: 
+      ThingName: !Join ["_", [!Ref "AWS::StackName", !Ref DoorCameraName] ]
+
+  DoorCameraPrincipal:
+    Type: AWS::IoT::ThingPrincipalAttachment
+    Properties: 
+      Principal: !Ref DoorCameraCertificateARN
+      ThingName: !Ref DoorCamera
+
+  DoorCameraIoTPolicy:
+    Type: AWS::IoT::Policy
+    Properties: 
+      PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - iot:AssumeRoleWithCertificate
+            Resource: "*"
+      PolicyName: !Join ["_", [!Ref "AWS::StackName", !Ref DoorCameraName, "Policy"] ]
+
+  DoorCameraIoTPolicyPrincipal:
+    Type: AWS::IoT::PolicyPrincipalAttachment
+    Properties: 
+      Principal: !Ref DoorCameraCertificateARN
+      PolicyName: !Ref DoorCameraIoTPolicy
+
+#############################################################################
+# STS Role
+#############################################################################
+  DoorCameraAssumeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ["_", [!Ref "AWS::StackName", "DoorCameraAssumeRole"] ]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: credentials.iot.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: !Join ["_", [!Ref "AWS::StackName", "DoorCameraAssumePolicy"] ]
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - kinesisvideo:DescribeSignalingChannel
+            - kinesisvideo:CreateSignalingChannel
+            - kinesisvideo:GetSignalingChannelEndpoint
+            - kinesisvideo:GetIceServerConfig
+            - kinesisvideo:ConnectAsMaster
+            Resource: arn:aws:kinesisvideo:*:*:channel/${credentials-iot:ThingName}/*
+
+#############################################################################
+# Alexa Skills Kit SmartHome Skill Lambda Role
+#############################################################################
+  ASKLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Join ["_", [!Ref "AWS::StackName", "ASKLambdaRole"] ]
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: !Join ["_", [!Ref "AWS::StackName", "ASKLambdaKVSPolicy"] ]
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - kinesisvideo:SendAlexaOfferToMaster
+            - kinesisvideo:GetSignalingChannelEndpoint
+            Resource: !Join
+                      - ":"
+                      - - "arn:aws:kinesisvideo"
+                        - !Ref AWS::Region
+                        - !Ref AWS::AccountId
+                        - !Join ["/", ["channel", !Ref DoorCamera, "*"]]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+Outputs:
+  KVSCredentialRole:
+    Description: Use this role ARN for Alias.
+    Value: !GetAtt DoorCameraAssumeRole.Arn
+  ThingName:
+    Description: AWS IoT Thing Name
+    Value: !Ref DoorCamera

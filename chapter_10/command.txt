@@ -1,0 +1,52 @@
+### node.js のインストール
+
+# node.js v8.10 をインストール
+sudo apt install -y nodejs npm
+# npm で n をインストール
+sudo npm install n -g
+# n で node.js v12 をインストール
+sudo n 12
+# node.js v8.10 を削除
+sudo apt purge -y nodejs npm
+
+### echonet-lite ライブラリのインストール
+
+# 作業用ディレクトリを作成 ディレクトリ名は任意
+mkdir echonet
+cd echonet
+# 作業用ディレクトリの node_modules に echonet-lite をインストール
+npm install echonet-lite
+
+### AWS IoT Greengrass V1 の実行に必要な設定を行う
+
+sudo adduser --system ggc_user
+sudo addgroup --system ggc_group
+
+sudo ln -s /usr/local/bin/node /usr/local/bin/nodejs12.x
+
+wget https://github.com/aws-samples/aws-greengrass-samples/raw/master/greengrass-dependency-checker-GGCv1.11.x.zip
+unzip greengrass-dependency-checker-GGCv1.11.x.zip
+cd greengrass-dependency-checker-GGCv1.11.x/
+sudo ./check_ggc_dependencies
+
+### Greengrass Core ソフトウェアのインストール
+
+# ファイル名は実際にダウンロードしたものに置き換えて下さい
+sudo tar zxvf greengrass-linux-aarch64-1.11.0.tar.gz -C /
+sudo tar zxvf xxxxxxxxxx-setup.tar.gz -C /greengrass/
+
+sudo wget https://www.amazontrust.com/repository/AmazonRootCA1.pem -O /greengrass/certs/root.ca.pem
+
+### Greengrass Core ソフトウェアの起動
+
+sudo /greengrass/ggc/core/greengrassd start
+
+### AWS Lambda への Lambda 関数の登録
+
+npm install aws-greengrass-core-sdk
+
+zip -r ../lambda.zip *
+
+### Greengrass グループへのサブスクリプションの登録
+
+$aws/things/+/shadow/#
